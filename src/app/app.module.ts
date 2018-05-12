@@ -1,126 +1,128 @@
-
-import {platformBrowserDynamic} from '@angular/platform-browser-dynamic';
-import {
-    Component,
-    Directive,
-    Renderer,
-    ElementRef,
-    NgModule,
-    Input,
-    Output,
-    EventEmitter,
-    HostListener,
-    HostBinding
-} from '@angular/core';
+import {NgModule, Component} from '@angular/core';
 import {BrowserModule} from '@angular/platform-browser';
-
-class Joke {
-  public setup: string;
-  public punchline: string;
-  public hide: boolean;
-
-  constructor(setup: string, punchline: string) {
-    this.setup = setup;
-    this.punchline = punchline;
-    this.hide = true;
-  }
-
-  toggle() {
-    this.hide = !this.hide;
-  }
-}
-
-@Directive({
-  selector: "[ccCardHover]"
-})
-class CardHoverDirective {
-  @HostBinding('class.card-outline-primary') private ishovering: boolean; 
-
-  @Input('ccCardHover') config : {
-    querySelector : '.card-text'
-  }
-  constructor(private el: ElementRef,
-              private renderer: Renderer) {
-    // renderer.setElementStyle(el.nativeElement, 'backgroundColor', 'gray');
-  }
-
-  @HostListener('mouseover') onMouseOver() {
-    let part = this.el.nativeElement.querySelector(this.config.querySelector);
-    this.renderer.setElementStyle(part, 'display', 'block');
-    this.ishovering = true;
-  }
-
-  @HostListener('mouseout') onMouseOut() {
-    let part = this.el.nativeElement.querySelector(this.config.querySelector);
-    this.renderer.setElementStyle(part, 'display', 'none');
-    this.ishovering = false;
-  }
-}
+import {platformBrowserDynamic} from '@angular/platform-browser-dynamic';
+import {ReactiveFormsModule, FormGroup, FormControl, Validators, FormBuilder} from "@angular/forms";
+import 'rxjs/Rx';
 
 @Component({
-  selector: 'joke',
-  template: `
-<div class="card card-block" 
-    [ccCardHover] ="{querySelector:'p'}"
-    >
-  <h4 class="card-title">{{data.setup}}</h4>
+  selector: 'form-app',
+  template: `<form [formGroup]="form"
+      (ngSubmit)="onSubmit()">
+      
+  <!-- Output comment -->
+  <div class="card card-block">
+    <pre class="card-text">{{ form.value.comment }}</pre>
+  </div>
+  <p class="small">{{ form.value.lastUpdateTS }}</p>
 
-  <p class="card-text"
-     [style.display]="'none'">{{data.punchline}}</p>  
-</div>
-`
+  <!-- Comment text area -->
+  <div class="form-group">
+    <label for="comment">Comment</label>
+    <textarea class="form-control"
+              formControlName="comment"
+              rows="3"></textarea>
+    <small class="form-text text-muted">
+           <span>{{ 100 - form.value.comment.length }}</span> characters left
+    </small>
+  </div>
+
+  <!-- Name input -->
+  <div class="form-group">
+    <label for="name">Name</label>
+    <input type="text"
+           class="form-control"
+           formControlName="name"
+           placeholder="Enter name">
+  </div>
+
+  <!-- Email input -->
+  <div class="form-group">
+    <label for="email">Email address</label>
+    <input type="email"
+           class="form-control"
+           formControlName="email"
+           placeholder="Enter email">
+    <small class="form-text text-muted">
+           We'll never share your email with anyone else.
+    </small>
+  </div>
+
+  <button type="submit"
+          class="btn btn-primary"
+          [disabled]="!form.valid">Submit
+  </button>
+</form>  
+ `
 })
+class FormAppComponent {
+  form: FormGroup;
+  comment = new FormControl("", Validators.required);
+  name = new FormControl("", Validators.required);
+  email = new FormControl("", [
+    Validators.required,
+    Validators.pattern("[^ @]*@[^ @]*")
+  ]);
 
+  /* Observable Solution */
+  constructor(fb: FormBuilder) {
+    this.form = fb.group({
+      "comment": this.comment,
+      "name": this.name,
+      "email": this.email
+    });
+    this.form.valueChanges
+        .filter(data => this.form.valid)
+        .map(data => {
+          data.comment = data.comment.replace(/<(?:.|\n)*?>/gm, '');
+          return data
+        })
+        .map(data => {
+          data.lastUpdateTS = new Date();
+          return data
+        })
+        .subscribe( data => console.log(JSON.stringify(data)));
+  }
 
-// <p class="card-text"
-// [hidden]="data.hide">{{data.punchline}}</p>
-// <button (click)="data.toggle()"
-// class="btn btn-primary">Tell Me
-// </button>
+  /* None Observable Solution */
+  // constructor(fb: FormBuilder) {
+  //   this.form = fb.group({
+  //     "comment": this.comment,
+  //     "name": this.name,
+  //     "email": this.email
+  //   });
+  //   this.form.valueChanges
+  //       .subscribe( data => {
+  //         if (this.form.valid) {
+  //           data.comment = data.comment.replace(/<(?:.|\n)*?>/gm, '');
+  //           data.lastUpdateTS = new Date();
+  //           console.log(JSON.stringify(data))
+  //         }
+  //       });
+  // }
 
-class JokeComponent {
-  @Input('joke') data: Joke;
-}
-
-@Component({
-  selector: 'joke-list',
-  template: `
-<joke *ngFor="let j of jokes" [joke]="j"></joke>
-  `
-})
-class JokeListComponent {
-  jokes: Joke[];
-
-  constructor() {
-    this.jokes = [
-      new Joke("What did the cheese say when it looked in the mirror?", "Hello-me (Halloumi)"),
-      new Joke("What kind of cheese do you use to disguise a small horse?", "Mask-a-pony (Mascarpone)"),
-      new Joke("A kid threw a lump of cheddar at me", "I thought ‘That’s not very mature’"),
-    ];
+  onSubmit() {
+    console.log("Form submitted!");
   }
 }
-
 
 @Component({
   selector: 'app',
   template: `
-<joke-list></joke-list>
+<form-app></form-app>
   `
 })
 class AppComponent {
 }
 
+
 @NgModule({
-  imports: [BrowserModule],
-  declarations: [
-    AppComponent,
-    JokeComponent,
-    JokeListComponent,
-    CardHoverDirective
-  ],
-  bootstrap: [AppComponent]
+  imports: [BrowserModule, ReactiveFormsModule],
+  declarations: [AppComponent, FormAppComponent],
+  bootstrap: [AppComponent],
 })
-export class AppModule {
+class AppModule {
+
 }
 
 platformBrowserDynamic().bootstrapModule(AppModule);
+
